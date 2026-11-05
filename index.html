@@ -17,7 +17,7 @@ h1{font-size:30px;margin:8px}
 .card{background:white;color:#292033;border-radius:18px;padding:20px;margin:15px 0;box-shadow:0 8px 25px #160a3055}
 button{border:0;border-radius:12px;padding:13px 18px;background:#792c83;color:white;font-weight:bold;font-size:16px;cursor:pointer;margin:5px 0}
 button:disabled{opacity:.5}
-input{width:100%;padding:13px;border:1px solid #ddd;border-radius:10px;margin:8px 0 14px;font-size:18px}
+select,input{width:100%;padding:13px;border:1px solid #ddd;border-radius:10px;margin:8px 0 14px;font-size:17px}
 .option{display:block;padding:13px;border:1px solid #e4d8e9;border-radius:10px;margin:9px 0;cursor:pointer}
 .option input{width:auto;margin:0 8px 0 0}
 .small{font-size:13px;color:#6c6070}
@@ -38,11 +38,32 @@ footer{text-align:center;color:#f3d8ee;padding:20px;font-size:13px}
 <div class="subtitle">MOST LIKELY TO... Who gets the vote? 😄</div>
 </header>
 
-<section class="card">
+<!-- ENTRY SCREEN -->
+<section class="card" id="entryScreen">
+<h2>🔐 Participant verification</h2>
+<p>Please enter your name and personal code to continue.</p>
+
+<label><b>1. Select your name</b></label>
+<select id="participantName">
+<option value="">Select your name</option>
+</select>
+
+<label><b>2. Enter your unique code</b></label>
+<input id="participantCode" type="password"
+inputmode="numeric" maxlength="2"
+placeholder="Enter your 2-digit code">
+
+<button onclick="verifyParticipant()" style="width:100%">
+ENTER →
+</button>
+
+<p id="entryMessage" class="small"></p>
+</section>
+
+<!-- VOTING SCREEN -->
+<section class="card hidden" id="votingScreen">
 <h2>🗳️ Cast your vote</h2>
-<label for="voterCode"><b>Enter your personal voting code</b></label>
-<input id="voterCode" inputmode="numeric" maxlength="2" placeholder="Enter code (01–19)">
-<p class="small">Use the two-digit code given to you by the host. Each code can vote once for every question.</p>
+<p>Welcome, <b id="welcomeName"></b>!</p>
 
 <div class="small">QUESTION <span id="number"></span></div>
 <h2 id="question"></h2>
@@ -64,6 +85,7 @@ footer{text-align:center;color:#f3d8ee;padding:20px;font-size:13px}
 <p class="small" id="siteLink"></p>
 </section>
 
+<!-- HOST PANEL -->
 <section class="card">
 <h2>🔐 Host panel</h2>
 <input id="pin" type="password" inputmode="numeric" placeholder="Host PIN">
@@ -74,7 +96,7 @@ footer{text-align:center;color:#f3d8ee;padding:20px;font-size:13px}
 <button onclick="hideResults()">Hide results</button>
 <button onclick="refreshResults()">Refresh votes</button>
 <button onclick="resetVotes()" style="background:#a52d45">Reset all votes</button>
-<p class="small">Reset permanently deletes all submitted votes. Everyone can then vote again with the same personal codes.</p>
+<p class="small">Reset deletes all votes. Participants can vote again using their existing codes.</p>
 <div id="results"></div>
 </div>
 </section>
@@ -88,12 +110,35 @@ const SUPABASE_KEY="sb_publishable_8KPMBVSyf10ltC2ZWxewpg_D0ROZDRN";
 
 const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
-const names=[
+const participants=[
 "Dr Omar","Dr Saimul","Dr Faruk","Dr Jumana","Dr Humayun",
 "Dr Taosiful","Dr Faria","Dr Nahida","Dr Sabeha","Dr Taznim",
 "Dr Sourav","Dr Sadia","Dr Junaed","Dr Abdur Rahman","Dr Tasfia",
 "Dr Tamanna","Dr Jerin","Dr Jisan","Dr Pushpita"
 ];
+
+// Name-to-code verification list
+const participantCodes={
+"Dr Omar":"01",
+"Dr Saimul":"02",
+"Dr Faruk":"03",
+"Dr Jumana":"04",
+"Dr Humayun":"05",
+"Dr Taosiful":"06",
+"Dr Faria":"07",
+"Dr Nahida":"08",
+"Dr Sabeha":"09",
+"Dr Taznim":"10",
+"Dr Sourav":"11",
+"Dr Sadia":"12",
+"Dr Junaed":"13",
+"Dr Abdur Rahman":"14",
+"Dr Tasfia":"15",
+"Dr Tamanna":"16",
+"Dr Jerin":"17",
+"Dr Jisan":"18",
+"Dr Pushpita":"19"
+};
 
 const questions=[
 "Most likely to become a hospital director?",
@@ -111,12 +156,60 @@ const questions=[
 let index=0;
 let unlocked=false;
 let revealed=false;
+let currentName=null;
+let currentCode=null;
 
+// Populate participant names
+participants.forEach(name=>{
+document.getElementById("participantName").add(
+new Option(name,name)
+);
+});
+
+// Verify name and code
+function verifyParticipant(){
+
+const name=document.getElementById("participantName").value;
+const code=document.getElementById("participantCode").value.trim();
+
+const message=document.getElementById("entryMessage");
+
+if(!name){
+message.textContent="Please select your name.";
+return;
+}
+
+if(!code){
+message.textContent="Please enter your personal code.";
+return;
+}
+
+if(participantCodes[name]!==code){
+message.textContent="Incorrect name or code. Please try again.";
+document.getElementById("participantCode").value="";
+return;
+}
+
+// Successful verification
+currentName=name;
+currentCode=code;
+
+document.getElementById("entryScreen").classList.add("hidden");
+document.getElementById("votingScreen").classList.remove("hidden");
+document.getElementById("welcomeName").textContent=name;
+
+render();
+}
+
+// Render questions
 function render(){
-document.getElementById("number").textContent=(index+1)+" / "+questions.length;
+
+document.getElementById("number").textContent=
+(index+1)+" / "+questions.length;
+
 document.getElementById("question").textContent=questions[index];
 
-document.getElementById("options").innerHTML=names.map(n=>
+document.getElementById("options").innerHTML=participants.map(n=>
 '<label class="option"><input type="radio" name="choice" value="'+n+'">'+n+'</label>'
 ).join("");
 
@@ -129,15 +222,15 @@ index=(index+n+questions.length)%questions.length;
 render();
 }
 
+// Submit vote
 async function vote(){
 
-const code=document.getElementById("voterCode").value.trim();
-const selected=document.querySelector('input[name="choice"]:checked');
-
-if(!/^([0][1-9]|1[0-9])$/.test(code)){
-alert("Please enter a valid code from 01 to 19.");
+if(!currentCode){
+alert("Please verify your identity first.");
 return;
 }
+
+const selected=document.querySelector('input[name="choice"]:checked');
 
 if(!selected){
 alert("Please choose a person to vote for.");
@@ -146,11 +239,12 @@ return;
 
 const btn=document.getElementById("voteBtn");
 btn.disabled=true;
+
 document.getElementById("message").textContent="Submitting...";
 
 const {error}=await db.from("game_votes").insert({
 question_id:String(index),
-voter_id:code,
+voter_id:currentCode,
 choice:selected.value
 });
 
@@ -158,37 +252,44 @@ if(error){
 
 if(error.code==="23505" || /duplicate|unique/i.test(error.message)){
 document.getElementById("message").textContent=
-"This code has already voted on this question. You can vote on the next question.";
+"You have already voted on this question!";
 }else{
-document.getElementById("message").textContent="Error: "+error.message;
+document.getElementById("message").textContent=
+"Error: "+error.message;
 }
 
 btn.disabled=false;
 
 }else{
 
-document.getElementById("message").textContent="Vote submitted successfully! 🎉";
+document.getElementById("message").textContent=
+"Vote submitted successfully! 🎉";
 
 document.querySelectorAll('input[name="choice"]').forEach(x=>x.checked=false);
 }
 }
 
+// Host login
 function hostLogin(){
 
 if(document.getElementById("pin").value==="2468"){
+
 unlocked=true;
 document.getElementById("hostControls").classList.remove("hidden");
 refreshResults();
+
 }else{
 alert("Incorrect PIN");
 }
 }
 
+// Refresh results
 async function refreshResults(){
 
 if(!unlocked)return;
 
-const {data,error}=await db.from("game_votes").select("question_id,choice");
+const {data,error}=await db.from("game_votes")
+.select("question_id,choice");
 
 if(error){
 document.getElementById("results").textContent=error.message;
@@ -217,7 +318,8 @@ if(sorted.length){
 sorted.forEach(([name,count])=>{
 
 html+='<p>'+name+' — '+count+' vote(s)</p>'+
-'<div class="bar"><span style="width:'+(100*count/rows.length)+'%"></span></div>';
+'<div class="bar"><span style="width:'+
+(100*count/rows.length)+'%"></span></div>';
 
 });
 
@@ -230,7 +332,6 @@ html+="<p class='small'>Results hidden.</p>";
 }
 
 html+="</div>";
-
 });
 
 document.getElementById("results").innerHTML=html;
@@ -246,15 +347,17 @@ revealed=false;
 refreshResults();
 }
 
+// Reset all votes
 async function resetVotes(){
 
 if(!unlocked)return;
 
-if(!confirm("Are you sure? This will permanently delete ALL votes. Everyone will start from zero.")){
+if(!confirm("Delete ALL votes? Everyone will start from zero.")){
 return;
 }
 
-const {error}=await db.from("game_votes").delete().not("id","is",null);
+const {error}=await db.from("game_votes")
+.delete().not("id","is",null);
 
 if(error){
 alert("Could not reset votes: "+error.message);
@@ -262,10 +365,12 @@ return;
 }
 
 revealed=false;
-alert("All votes have been reset. Everyone can vote again.");
+
+alert("All votes have been reset!");
 refreshResults();
 }
 
+// QR code
 const url=window.location.href;
 
 document.getElementById("siteLink").textContent=url;
@@ -275,8 +380,6 @@ text:url,
 width:190,
 height:190
 });
-
-render();
 
 </script>
 </body>
