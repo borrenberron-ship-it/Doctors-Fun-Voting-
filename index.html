@@ -7,6 +7,7 @@
 <title>Doctors' Fun Night</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
 <style>
 *{box-sizing:border-box}
 body{margin:0;padding:16px;font-family:Arial,sans-serif;background:linear-gradient(135deg,#241044,#54236e,#a33d72);color:white;min-height:100vh}
@@ -27,8 +28,12 @@ select,input{width:100%;padding:13px;border:1px solid #ddd;border-radius:10px;ma
 .bar span{display:block;height:100%;background:#9b4ba2}
 #qrcode{background:white;padding:12px;display:inline-block;border-radius:10px}
 footer{text-align:center;color:#f3d8ee;padding:20px;font-size:13px}
+.winner{background:#e4f5e7;padding:12px;border-radius:10px;color:#17632c;font-weight:bold;margin-top:12px}
+.tie{background:#fff2d9;padding:12px;border-radius:10px;margin-top:12px}
+.lottery{background:#a34d16;color:white}
 </style>
 </head>
+
 <body>
 <main>
 
@@ -38,7 +43,6 @@ footer{text-align:center;color:#f3d8ee;padding:20px;font-size:13px}
 <div class="subtitle">MOST LIKELY TO... Who gets the vote? 😄</div>
 </header>
 
-<!-- ENTRY SCREEN -->
 <section class="card" id="entryScreen">
 <h2>🔐 Participant verification</h2>
 <p>Please enter your name and personal code to continue.</p>
@@ -49,18 +53,12 @@ footer{text-align:center;color:#f3d8ee;padding:20px;font-size:13px}
 </select>
 
 <label><b>2. Enter your unique code</b></label>
-<input id="participantCode" type="password"
-inputmode="numeric" maxlength="2"
-placeholder="Enter your 2-digit code">
+<input id="participantCode" type="password" inputmode="numeric" maxlength="2" placeholder="Enter your 2-digit code">
 
-<button onclick="verifyParticipant()" style="width:100%">
-ENTER →
-</button>
-
+<button onclick="verifyParticipant()" style="width:100%">ENTER →</button>
 <p id="entryMessage" class="small"></p>
 </section>
 
-<!-- VOTING SCREEN -->
 <section class="card hidden" id="votingScreen">
 <h2>🗳️ Cast your vote</h2>
 <p>Welcome, <b id="welcomeName"></b>!</p>
@@ -85,7 +83,6 @@ ENTER →
 <p class="small" id="siteLink"></p>
 </section>
 
-<!-- HOST PANEL -->
 <section class="card">
 <h2>🔐 Host panel</h2>
 <input id="pin" type="password" inputmode="numeric" placeholder="Host PIN">
@@ -96,7 +93,8 @@ ENTER →
 <button onclick="hideResults()">Hide results</button>
 <button onclick="refreshResults()">Refresh votes</button>
 <button onclick="resetVotes()" style="background:#a52d45">Reset all votes</button>
-<p class="small">Reset deletes all votes. Participants can vote again using their existing codes.</p>
+
+<p class="small">A lottery is available whenever two or more people tie for first place.</p>
 <div id="results"></div>
 </div>
 </section>
@@ -107,7 +105,6 @@ ENTER →
 <script>
 const SUPABASE_URL="https://qazenyxlhswckircqtab.supabase.co";
 const SUPABASE_KEY="sb_publishable_8KPMBVSyf10ltC2ZWxewpg_D0ROZDRN";
-
 const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 const participants=[
@@ -117,7 +114,6 @@ const participants=[
 "Dr Tamanna","Dr Jerin","Dr Jisan","Dr Pushpita"
 ];
 
-// Name-to-code verification list
 const participantCodes={
 "Dr Omar":"01",
 "Dr Saimul":"02",
@@ -159,19 +155,21 @@ let revealed=false;
 let currentName=null;
 let currentCode=null;
 
-// Populate participant names
+// Store lottery winners in this host browser
+let lotteryWinners=JSON.parse(
+localStorage.getItem("doctors_fun_lottery")||"{}"
+);
+
 participants.forEach(name=>{
 document.getElementById("participantName").add(
 new Option(name,name)
 );
 });
 
-// Verify name and code
 function verifyParticipant(){
 
 const name=document.getElementById("participantName").value;
 const code=document.getElementById("participantCode").value.trim();
-
 const message=document.getElementById("entryMessage");
 
 if(!name){
@@ -190,7 +188,6 @@ document.getElementById("participantCode").value="";
 return;
 }
 
-// Successful verification
 currentName=name;
 currentCode=code;
 
@@ -201,7 +198,6 @@ document.getElementById("welcomeName").textContent=name;
 render();
 }
 
-// Render questions
 function render(){
 
 document.getElementById("number").textContent=
@@ -222,7 +218,6 @@ index=(index+n+questions.length)%questions.length;
 render();
 }
 
-// Submit vote
 async function vote(){
 
 if(!currentCode){
@@ -239,7 +234,6 @@ return;
 
 const btn=document.getElementById("voteBtn");
 btn.disabled=true;
-
 document.getElementById("message").textContent="Submitting...";
 
 const {error}=await db.from("game_votes").insert({
@@ -250,7 +244,7 @@ choice:selected.value
 
 if(error){
 
-if(error.code==="23505" || /duplicate|unique/i.test(error.message)){
+if(error.code==="23505"||/duplicate|unique/i.test(error.message)){
 document.getElementById("message").textContent=
 "You have already voted on this question!";
 }else{
@@ -269,21 +263,38 @@ document.querySelectorAll('input[name="choice"]').forEach(x=>x.checked=false);
 }
 }
 
-// Host login
 function hostLogin(){
 
 if(document.getElementById("pin").value==="2468"){
-
 unlocked=true;
 document.getElementById("hostControls").classList.remove("hidden");
 refreshResults();
-
 }else{
 alert("Incorrect PIN");
 }
 }
 
-// Refresh results
+function drawLottery(questionIndex, finalists, signature){
+
+if(!unlocked)return;
+
+const winner=finalists[
+Math.floor(Math.random()*finalists.length)
+];
+
+lotteryWinners[questionIndex]={
+signature:signature,
+winner:winner
+};
+
+localStorage.setItem(
+"doctors_fun_lottery",
+JSON.stringify(lotteryWinners)
+);
+
+refreshResults();
+}
+
 async function refreshResults(){
 
 if(!unlocked)return;
@@ -309,30 +320,80 @@ counts[v.choice]=(counts[v.choice]||0)+1;
 
 const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
 
-html+='<div class="result"><b>'+(i+1)+'. '+q+'</b><p>'+rows.length+' votes</p>';
+html+='<div class="result"><b>'+(i+1)+'. '+q+'</b>';
+html+='<p>'+rows.length+' votes</p>';
 
-if(revealed){
-
-if(sorted.length){
-
-sorted.forEach(([name,count])=>{
-
-html+='<p>'+name+' — '+count+' vote(s)</p>'+
-'<div class="bar"><span style="width:'+
-(100*count/rows.length)+'%"></span></div>';
-
-});
-
-}else{
-html+="No votes yet";
+if(!revealed){
+html+="<p class='small'>Results hidden.</p>";
+html+="</div>";
+return;
 }
 
+if(rows.length===0){
+html+="<p>No votes yet.</p></div>";
+return;
+}
+
+// Show vote counts
+sorted.forEach(([name,count])=>{
+html+='<p>'+name+' — '+count+' vote(s)</p>';
+html+='<div class="bar"><span style="width:'+
+(100*count/rows.length)+'%"></span></div>';
+});
+
+// Identify all people tied at the highest vote count
+const highest=sorted[0][1];
+const finalists=sorted
+.filter(([name,count])=>count===highest)
+.map(([name])=>name);
+
+if(finalists.length===1){
+
+const old=lotteryWinners[i];
+delete lotteryWinners[i];
+
+html+='<div class="winner">🏆 WINNER: '+finalists[0]+'</div>';
+
 }else{
-html+="<p class='small'>Results hidden.</p>";
+
+const signature=JSON.stringify(
+finalists.slice().sort().map(name=>[name,highest])
+);
+
+const previous=lotteryWinners[i];
+
+html+='<div class="tie"><b>⚖️ TIE! '+finalists.length+
+' people are tied for first place.</b><p>Lottery finalists:</p>';
+
+finalists.forEach(name=>{
+html+='<p>🎟️ '+name+'</p>';
+});
+
+if(previous&&previous.signature===signature){
+
+html+='<div class="winner">🎉 LOTTERY WINNER: '+
+previous.winner+'</div>';
+
+}else{
+
+delete lotteryWinners[i];
+
+html+='<button class="lottery" onclick=\\'drawLottery('+
+i+','+JSON.stringify(finalists)+','+
+JSON.stringify(signature)+')\\'>🎲 Draw Lottery</button>';
+}
+
+html+='</div>';
 }
 
 html+="</div>";
+
 });
+
+localStorage.setItem(
+"doctors_fun_lottery",
+JSON.stringify(lotteryWinners)
+);
 
 document.getElementById("results").innerHTML=html;
 }
@@ -347,12 +408,11 @@ revealed=false;
 refreshResults();
 }
 
-// Reset all votes
 async function resetVotes(){
 
 if(!unlocked)return;
 
-if(!confirm("Delete ALL votes? Everyone will start from zero.")){
+if(!confirm("Delete ALL votes and lottery winners? Everyone will start from zero.")){
 return;
 }
 
@@ -364,13 +424,15 @@ alert("Could not reset votes: "+error.message);
 return;
 }
 
+lotteryWinners={};
+localStorage.removeItem("doctors_fun_lottery");
+
 revealed=false;
 
-alert("All votes have been reset!");
+alert("All votes and lottery winners have been reset!");
 refreshResults();
 }
 
-// QR code
 const url=window.location.href;
 
 document.getElementById("siteLink").textContent=url;
