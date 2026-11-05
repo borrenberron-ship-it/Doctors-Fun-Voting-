@@ -83,11 +83,9 @@ footer{text-align:center;color:#f3d8ee;padding:20px;font-size:13px}
 <input id="pin" type="password" inputmode="numeric" placeholder="Host PIN">
 <button onclick="hostLogin()">Open host panel</button>
 <div id="hostControls" class="hidden">
-<p class="small">Refresh votes, then proclaim the results one by one.</p>
-<button onclick="refreshVotes()">Refresh votes</button>
-<button onclick="proclaimWinner()">🏆 Proclaim Winner</button>
-<button onclick="hideResults()">Hide results</button>
-<button onclick="resetVotes()" style="background:#a52d45">Reset all votes</button>
+<p class="small">Click Proclaim Winner to load the latest votes and announce the results one by one.</p>
+<button onclick="proclaimWinner()" style="width:100%">🏆 Proclaim Winner</button>
+<button onclick="resetVotes()" style="background:#a52d45;width:100%">Reset all votes</button>
 <div id="results"></div>
 </div>
 </section>
@@ -281,7 +279,8 @@ function hostLogin(){
 if(document.getElementById("pin").value==="2468"){
 unlocked=true;
 document.getElementById("hostControls").classList.remove("hidden");
-refreshVotes();
+document.getElementById("results").innerHTML=
+"<p>Ready. Press Proclaim Winner to load the latest votes.</p>";
 }else alert("Incorrect PIN");
 }
 
@@ -290,16 +289,6 @@ const {data,error}=await getDb().from("game_votes")
 .select("voter_id,choice").eq("question_id","FINAL");
 if(error)throw error;
 return data||[];
-}
-
-async function refreshVotes(){
-if(!unlocked)return;
-try{
-ballotRows=await getBallots();
-if(revealed)showCurrentResult();
-else document.getElementById("results").innerHTML=
-"<h3>Submitted ballots: "+ballotRows.length+" / "+participants.length+"</h3><p>Results are hidden. Press Proclaim Winner to begin.</p>";
-}catch(e){document.getElementById("results").textContent="Error: "+e.message;}
 }
 
 function getQuestionData(i){
@@ -316,15 +305,24 @@ const finalists=sorted.filter(x=>x[1]===high).map(x=>x[0]);
 return {sorted,high,finalists};
 }
 
-function proclaimWinner(){
+async function proclaimWinner(){
 if(!unlocked)return;
-getBallots().then(rows=>{
-ballotRows=rows;
+const btn=document.querySelector("#hostControls button");
+btn.disabled=true;
+btn.textContent="Loading votes...";
+
+try{
+ballotRows=await getBallots();
 revealed=true;
 resultIndex=0;
 lotteryWinner=null;
 showCurrentResult();
-}).catch(e=>alert("Could not load votes: "+e.message));
+}catch(e){
+alert("Could not load votes: "+e.message);
+}finally{
+btn.disabled=false;
+btn.textContent="🏆 Proclaim Winner";
+}
 }
 
 function showCurrentResult(){
@@ -423,14 +421,6 @@ lotteryWinner=null;
 showCurrentResult();
 }
 
-function hideResults(){
-stopLottery();
-revealed=false;
-lotteryWinner=null;
-document.getElementById("results").innerHTML=
-"<p>Results hidden. Press Proclaim Winner to start again.</p>";
-}
-
 async function resetVotes(){
 if(!unlocked||!confirm("Delete ALL submitted ballots and old votes? Everyone will start from zero."))return;
 stopLottery();
@@ -442,7 +432,8 @@ revealed=false;
 resultIndex=0;
 lotteryWinner=null;
 alert("All votes have been reset.");
-document.getElementById("results").innerHTML="";
+document.getElementById("results").innerHTML=
+"<p>All votes have been reset. Ready for a new round!</p>";
 }catch(e){alert("Could not reset votes: "+e.message);}
 }
 </script>
