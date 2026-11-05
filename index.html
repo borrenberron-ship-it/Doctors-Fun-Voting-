@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -16,7 +17,7 @@ h1{font-size:30px;margin:8px}
 .card{background:white;color:#292033;border-radius:18px;padding:20px;margin:15px 0;box-shadow:0 8px 25px #160a3055}
 button{border:0;border-radius:12px;padding:13px 18px;background:#792c83;color:white;font-weight:bold;font-size:16px;cursor:pointer;margin:5px 0}
 button:disabled{opacity:.5}
-select,input{width:100%;padding:13px;border:1px solid #ddd;border-radius:10px;margin:8px 0 14px;font-size:16px}
+input{width:100%;padding:13px;border:1px solid #ddd;border-radius:10px;margin:8px 0 14px;font-size:18px}
 .option{display:block;padding:13px;border:1px solid #e4d8e9;border-radius:10px;margin:9px 0;cursor:pointer}
 .option input{width:auto;margin:0 8px 0 0}
 .small{font-size:13px;color:#6c6070}
@@ -30,6 +31,7 @@ footer{text-align:center;color:#f3d8ee;padding:20px;font-size:13px}
 </head>
 <body>
 <main>
+
 <header>
 <div style="font-size:42px">🎉 🩺 🎊</div>
 <h1>DOCTORS' FUN NIGHT</h1>
@@ -38,16 +40,17 @@ footer{text-align:center;color:#f3d8ee;padding:20px;font-size:13px}
 
 <section class="card">
 <h2>🗳️ Cast your vote</h2>
-<label><b>Choose your name</b></label>
-<select id="voterName">
-<option value="">Select your name</option>
-</select>
-<p class="small">Your name is used only to prevent repeat voting from the same device.</p>
+<label for="voterCode"><b>Enter your personal voting code</b></label>
+<input id="voterCode" inputmode="numeric" maxlength="2" placeholder="Enter code (01–19)">
+<p class="small">Use the two-digit code given to you by the host. Each code can vote once for every question.</p>
+
 <div class="small">QUESTION <span id="number"></span></div>
 <h2 id="question"></h2>
 <div id="options"></div>
+
 <button id="voteBtn" onclick="vote()">Submit my vote 🗳️</button>
 <p id="message" class="small"></p>
+
 <div style="display:flex;justify-content:space-between;gap:8px">
 <button onclick="changeQuestion(-1)">← Previous</button>
 <button onclick="changeQuestion(1)">Next →</button>
@@ -63,12 +66,15 @@ footer{text-align:center;color:#f3d8ee;padding:20px;font-size:13px}
 
 <section class="card">
 <h2>🔐 Host panel</h2>
-<input id="pin" type="password" placeholder="Host PIN">
+<input id="pin" type="password" inputmode="numeric" placeholder="Host PIN">
 <button onclick="hostLogin()">Open host panel</button>
+
 <div id="hostControls" class="hidden">
 <button onclick="showResults()">Reveal results</button>
 <button onclick="hideResults()">Hide results</button>
 <button onclick="refreshResults()">Refresh votes</button>
+<button onclick="resetVotes()" style="background:#a52d45">Reset all votes</button>
+<p class="small">Reset permanently deletes all submitted votes. Everyone can then vote again with the same personal codes.</p>
 <div id="results"></div>
 </div>
 </section>
@@ -77,19 +83,19 @@ footer{text-align:center;color:#f3d8ee;padding:20px;font-size:13px}
 </main>
 
 <script>
-const SUPABASE_URL = "https://qazenyxlhswckircqtab.supabase.co";
-const SUPABASE_KEY = "sb_publishable_8KPMBVSyf10ltC2ZWxewpg_D0ROZDRN";
+const SUPABASE_URL="https://qazenyxlhswckircqtab.supabase.co";
+const SUPABASE_KEY="sb_publishable_8KPMBVSyf10ltC2ZWxewpg_D0ROZDRN";
 
-const db = window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
-const names = [
+const names=[
 "Dr Omar","Dr Saimul","Dr Faruk","Dr Jumana","Dr Humayun",
 "Dr Taosiful","Dr Faria","Dr Nahida","Dr Sabeha","Dr Taznim",
 "Dr Sourav","Dr Sadia","Dr Junaed","Dr Abdur Rahman","Dr Tasfia",
 "Dr Tamanna","Dr Jerin","Dr Jisan","Dr Pushpita"
 ];
 
-const questions = [
+const questions=[
 "Most likely to become a hospital director?",
 "Most likely to forget where they kept their stethoscope?",
 "Most likely to arrive late but blame the traffic?",
@@ -102,24 +108,18 @@ const questions = [
 "Most likely to become a strict examiner?"
 ];
 
-let index=0, unlocked=false, revealed=false;
-
-let voter=localStorage.getItem("doctor_voter_id");
-if(!voter){
-voter="v"+Math.random().toString(36).slice(2)+Date.now();
-localStorage.setItem("doctor_voter_id",voter);
-}
-
-names.forEach(n=>{
-document.getElementById("voterName").add(new Option(n,n));
-});
+let index=0;
+let unlocked=false;
+let revealed=false;
 
 function render(){
 document.getElementById("number").textContent=(index+1)+" / "+questions.length;
 document.getElementById("question").textContent=questions[index];
+
 document.getElementById("options").innerHTML=names.map(n=>
-`<label class="option"><input type="radio" name="choice" value="${n}">${n}</label>`
+'<label class="option"><input type="radio" name="choice" value="'+n+'">'+n+'</label>'
 ).join("");
+
 document.getElementById("message").textContent="";
 document.getElementById("voteBtn").disabled=false;
 }
@@ -130,31 +130,51 @@ render();
 }
 
 async function vote(){
-const voterName=document.getElementById("voterName").value;
+
+const code=document.getElementById("voterCode").value.trim();
 const selected=document.querySelector('input[name="choice"]:checked');
 
-if(!voterName){alert("Please select your own name first.");return}
-if(!selected){alert("Please choose a person to vote for.");return}
+if(!/^([0][1-9]|1[0-9])$/.test(code)){
+alert("Please enter a valid code from 01 to 19.");
+return;
+}
+
+if(!selected){
+alert("Please choose a person to vote for.");
+return;
+}
 
 const btn=document.getElementById("voteBtn");
 btn.disabled=true;
 document.getElementById("message").textContent="Submitting...";
 
-const {error}=await db.from("game_votes").upsert({
+const {error}=await db.from("game_votes").insert({
 question_id:String(index),
-voter_id:voter,
+voter_id:code,
 choice:selected.value
-},{onConflict:"question_id,voter_id"});
+});
 
 if(error){
-document.getElementById("message").textContent="Error: "+error.message;
-btn.disabled=false;
+
+if(error.code==="23505" || /duplicate|unique/i.test(error.message)){
+document.getElementById("message").textContent=
+"This code has already voted on this question. You can vote on the next question.";
 }else{
+document.getElementById("message").textContent="Error: "+error.message;
+}
+
+btn.disabled=false;
+
+}else{
+
 document.getElementById("message").textContent="Vote submitted successfully! 🎉";
+
+document.querySelectorAll('input[name="choice"]').forEach(x=>x.checked=false);
 }
 }
 
 function hostLogin(){
+
 if(document.getElementById("pin").value==="2468"){
 unlocked=true;
 document.getElementById("hostControls").classList.remove("hidden");
@@ -165,51 +185,99 @@ alert("Incorrect PIN");
 }
 
 async function refreshResults(){
+
 if(!unlocked)return;
 
 const {data,error}=await db.from("game_votes").select("question_id,choice");
+
 if(error){
 document.getElementById("results").textContent=error.message;
 return;
 }
 
 let html="";
+
 questions.forEach((q,i)=>{
+
 const rows=data.filter(v=>v.question_id===String(i));
 const counts={};
-rows.forEach(v=>counts[v.choice]=(counts[v.choice]||0)+1);
+
+rows.forEach(v=>{
+counts[v.choice]=(counts[v.choice]||0)+1;
+});
+
 const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
 
-html+=`<div class="result"><b>${i+1}. ${q}</b><p>${rows.length} votes</p>`;
+html+='<div class="result"><b>'+(i+1)+'. '+q+'</b><p>'+rows.length+' votes</p>';
 
 if(revealed){
+
 if(sorted.length){
+
 sorted.forEach(([name,count])=>{
-html+=`<p>${name} — ${count} vote(s)</p>
-<div class="bar"><span style="width:${100*count/rows.length}%"></span></div>`;
+
+html+='<p>'+name+' — '+count+' vote(s)</p>'+
+'<div class="bar"><span style="width:'+(100*count/rows.length)+'%"></span></div>';
+
 });
+
 }else{
 html+="No votes yet";
 }
+
 }else{
 html+="<p class='small'>Results hidden.</p>";
 }
+
 html+="</div>";
+
 });
 
 document.getElementById("results").innerHTML=html;
 }
 
-function showResults(){revealed=true;refreshResults()}
-function hideResults(){revealed=false;refreshResults()}
+function showResults(){
+revealed=true;
+refreshResults();
+}
+
+function hideResults(){
+revealed=false;
+refreshResults();
+}
+
+async function resetVotes(){
+
+if(!unlocked)return;
+
+if(!confirm("Are you sure? This will permanently delete ALL votes. Everyone will start from zero.")){
+return;
+}
+
+const {error}=await db.from("game_votes").delete().not("id","is",null);
+
+if(error){
+alert("Could not reset votes: "+error.message);
+return;
+}
+
+revealed=false;
+alert("All votes have been reset. Everyone can vote again.");
+refreshResults();
+}
 
 const url=window.location.href;
+
 document.getElementById("siteLink").textContent=url;
+
 new QRCode(document.getElementById("qrcode"),{
-text:url,width:190,height:190
+text:url,
+width:190,
+height:190
 });
 
 render();
+
 </script>
 </body>
 </html>
